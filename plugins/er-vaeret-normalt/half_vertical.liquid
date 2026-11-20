@@ -1,0 +1,47 @@
+{% comment %} HALF VERTICAL – halve bredden, full høyde. Krever Shared-fanen. {% endcomment %}
+<div class="layout layout--col gap--medium">
+
+  {% if har_data %}
+  <div class="nv-venstre" style="width:100%;">
+    <span class="nv-kicker">{{ dato_tekst }}</span>
+    <span class="value value--large">{{ middel.dom }}</span>
+    <span class="label">{{ middel.setning }}</span>
+  </div>
+  <div class="nv-topp" style="align-items:center;">
+    <span class="value value--xlarge">{{ middel.verdi }}</span>
+    <div class="nv-hoyre">
+      {{ avvikchip }}
+      <span class="label label--small">Siste 30 dager: {{ siste30.avvik }}</span>
+    </div>
+  </div>
+
+  <div class="nv-ramme"><div id="nv-hv" class="nv-kurve"></div></div>
+
+  <div class="nv-stat">
+    <div class="item">
+      <div class="meta"></div>
+      <div class="content">
+        <span class="value value--xsmall">{% if maks.mangler %}–{% else %}{{ maks.verdi }}{% endif %} / {% if min.mangler %}–{% else %}{{ min.verdi }}{% endif %}</span>
+        <span class="label label--small">Høyest / lavest i dag</span>
+      </div>
+    </div>
+    <div class="item">
+      <div class="meta"></div>
+      <div class="content">
+        <span class="value value--xsmall">{{ middel.rekord_hoy }} · {{ middel.rekord_lav }}</span>
+        <span class="label label--small">Rekorder {{ dato_kort }}</span>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <span class="value value--small">Mangler data fra værstasjonen</span>
+  {% endif %}
+
+</div>
+
+<div class="title_bar">
+  <span class="title">Er været normalt?</span>
+  <span class="instance">{{ sted }} · {{ oppdatert }}</span>
+</div>
+
+<script>tegnNormal('nv-hv', 'middel', { dager: 30, navn: false });</script>

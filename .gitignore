@@ -1,0 +1,5 @@
+site/
+data/
+fonts/
+cache/
+__pycache__/

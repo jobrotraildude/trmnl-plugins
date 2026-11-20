@@ -1,0 +1,59 @@
+{% comment %} FULL – hel skjerm. Krever Shared-fanen. {% endcomment %}
+<div class="layout layout--col gap--medium">
+
+  {% if maks.mangler or min.mangler %}
+  <span class="value">Mangler data fra værstasjonen</span>
+  {% else %}
+  <div class="sp-topp">
+    <div class="sp-boks" style="flex:1.2;">
+      <span class="sp-kicker">▲ Høyest · {{ dato_tekst }}</span>
+      <span class="value value--xxlarge">{{ maks.verdi }}</span>
+      <div>{{ chip_maks_stor }}</div>
+    </div>
+    <div class="sp-boks" style="flex:1.2;">
+      <span class="sp-kicker">▼ Lavest</span>
+      <span class="value value--xxlarge">{{ min.verdi }}</span>
+      <div>{{ chip_min_stor }}</div>
+    </div>
+    <div class="sp-boks" style="flex:0.8;">
+      <span class="sp-kicker">Døgnets spenn</span>
+      <span class="value value--xlarge" id="sp-spenn">–</span>
+      <span class="label label--large" id="sp-spenn-normal"></span>
+    </div>
+  </div>
+
+  <div class="sp-ramme"><div id="sp-full" class="sp-kurve"></div></div>
+
+  <div class="sp-stat">
+    <div class="item">
+      <div class="meta"></div>
+      <div class="content">
+        <span class="value value--small" id="sp-frost">–</span>
+        <span class="label">Døgn med frost siste 30 dager</span>
+      </div>
+    </div>
+    <div class="item">
+      <div class="meta"></div>
+      <div class="content">
+        <span class="value value--small" id="sp-ytter">–</span>
+        <span class="label" id="sp-ytter-tekst">Varmest · kaldest siste 60 dager</span>
+      </div>
+    </div>
+    <div class="item">
+      <div class="meta"></div>
+      <div class="content">
+        <span class="value value--small">{{ maks.rekord_hoy }} · {{ min.rekord_lav }}</span>
+        <span class="label">Rekorder {{ dato_kort }} ({{ maks.rekord_hoy_aar }} · {{ min.rekord_lav_aar }})</span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<div class="title_bar">
+  <span class="title">Døgnets spenn</span>
+  <span class="instance">{{ sted }} · høyeste og laveste temperatur · normal {{ normalperiode }} · MET · {{ oppdatert }}</span>
+</div>
+
+<script>fyllSpenn(); tegnSpenn('sp-full', { dager: 60 });</script>

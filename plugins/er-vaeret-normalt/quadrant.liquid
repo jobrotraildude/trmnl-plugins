@@ -1,0 +1,24 @@
+{% comment %} QUADRANT – en firedel av skjermen. Krever Shared-fanen. {% endcomment %}
+<div class="layout layout--col gap--small">
+
+  {% if har_data %}
+  <div class="nv-topp" style="align-items:center;">
+    <div class="nv-venstre" style="gap:6px;">
+      <span class="value value--small">{{ middel.dom }}</span>
+      <div>{{ avvikchip }}</div>
+    </div>
+    <span class="value value--large">{{ middel.verdi }}</span>
+  </div>
+  <div class="nv-ramme"><div id="nv-q" class="nv-kurve"></div></div>
+  {% else %}
+  <span class="value value--small">Mangler data fra værstasjonen</span>
+  {% endif %}
+
+</div>
+
+<div class="title_bar">
+  <span class="title">Er været normalt?</span>
+  <span class="instance">{{ sted }}</span>
+</div>
+
+<script>tegnNormal('nv-q', 'middel', { dager: 30, navn: false });</script>

@@ -1,0 +1,24 @@
+{% comment %} HALF HORIZONTAL – full bredde, halve høyden. Krever Shared-fanen. {% endcomment %}
+<div class="layout layout--row gap--medium" style="align-items:stretch;">
+
+  {% if har_data %}
+  <div class="nv-venstre" style="width:27%; justify-content:center; flex-shrink:0;">
+    <span class="nv-kicker">I dag</span>
+    <span class="value">{{ middel.dom }}</span>
+    <span class="value value--xlarge">{{ middel.verdi }}</span>
+    <div>{{ avvikchip }}</div>
+    <span class="label label--small">Siste 30 dager: {{ siste30.avvik }}</span>
+  </div>
+  <div class="nv-ramme"><div id="nv-hh" class="nv-kurve"></div></div>
+  {% else %}
+  <span class="value">Mangler data fra værstasjonen</span>
+  {% endif %}
+
+</div>
+
+<div class="title_bar">
+  <span class="title">Er været normalt?</span>
+  <span class="instance">{{ sted }} · døgnmiddel · {{ oppdatert }}</span>
+</div>
+
+<script>tegnNormal('nv-hh', 'middel', { dager: 60 });</script>

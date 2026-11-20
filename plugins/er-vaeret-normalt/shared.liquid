@@ -1,0 +1,154 @@
+{% comment %} SHARED – legges automatisk foran alle layouter for «Er været normalt?» {% endcomment %}
+{% comment %} Stedsnavnet skrives inn i pluginens innstillinger i TRMNL (feltet «Sted»), så det ikke ligger i datafilen. {% endcomment %}
+{% assign sted = trmnl.plugin_settings.custom_fields_values.sted | default: "" %}
+{% comment %} Merkelappen ved temperaturen: svart når dagen er utenfor det normale, ramme når den er normal {% endcomment %}
+{% capture avvikchip %}<span class="label {% if middel.utenfor %}label--filled{% else %}label--outline{% endif %}">{{ middel.avvik_tekst }}</span>{% endcapture %}
+{% assign avvikchip_stor = avvikchip | replace: 'class="label', 'class="label label--large' %}
+
+<style>
+  .nv-topp { display:flex; justify-content:space-between; align-items:flex-end; gap:20px; width:100%; }
+  .nv-venstre { display:flex; flex-direction:column; gap:8px; min-width:0; }
+  .nv-hoyre { display:flex; flex-direction:column; align-items:flex-end; gap:8px; flex-shrink:0; }
+  .nv-kicker { font-size:14px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#444; }
+  .nv-stat { display:flex; gap:26px; width:100%; padding-top:10px; border-top:2px solid #000; }
+  .nv-stat .item { flex:1; min-width:0; }
+  .nv-ramme { position:relative; width:100%; flex:1; min-width:0; min-height:0; }
+  .nv-kurve { position:absolute; inset:0; }
+</style>
+
+<script>
+window.NORMAL = {{ serie | default: "null" }};
+window.NORMAL_PST = {{ band_pst | default: 80 }};   // hvor stor andel av årene normalbåndet dekker
+
+/* Tegner kurven i elementet med gitt id.
+   nokkel: "middel", "maks" eller "min". opts: dager (hvor mange dager tilbake), navn (merking i høyre marg) */
+var _tegnNormal = function (id, nokkel, opts) {
+  opts = opts || {};
+  var N = window.NORMAL, el = document.getElementById(id);
+  if (!el || !N || !N[nokkel]) return;
+  var S = N[nokkel], fra = Math.max(0, N.iT - (opts.dager || N.iT)), n = N.n - fra, iT = N.iT - fra;
+  function v(felt, i) { var x = S[felt][i + fra]; return x === null || x === undefined ? null : x; }
+
+  var r = el.getBoundingClientRect(), W = r.width, H = r.height;
+  if (W < 50 || H < 50) return false;
+  var fs = Math.max(12, Math.round(Math.min(H * 0.045, W * 0.02)));
+  var navn = opts.navn !== false;
+  var mL = fs * 2.6, mR = navn ? fs * 7.2 : 8, mT = fs * 1.6, mB = fs * 1.9;
+
+  var alle = [];
+  for (var a = 0; a < n; a++) ['t', 'min', 'maks'].forEach(function (k) { if (v(k, a) !== null) alle.push(v(k, a)); });
+  if (!alle.length) return;
+  var lo = Math.floor(Math.min.apply(null, alle) / 5) * 5, hi = Math.ceil(Math.max.apply(null, alle) / 5) * 5;
+  if (hi === lo) hi = lo + 5;
+  var trinn = (hi - lo) > 30 ? 10 : 5;
+
+  function X(i) { return mL + i / (n - 1) * (W - mL - mR); }
+  function Y(t) { return mT + (hi - t) / (hi - lo) * (H - mT - mB); }
+  function f(t) { return Math.round(t * 10) / 10; }
+  // Linje gjennom alle dager som har verdi. Hull i dataene gir brudd i streken.
+  function linje(felt, i0, i1) {
+    var s = '', penn = false;
+    for (var i = i0; i <= i1; i++) {
+      var t = v(felt, i);
+      if (t === null) { penn = false; continue; }
+      s += (penn ? 'L' : 'M') + f(X(i)) + ',' + f(Y(t)); penn = true;
+    }
+    return s;
+  }
+  function band(ovre, nedre) {
+    var opp = '', ned = '';
+    for (var i = 0; i < n; i++) {
+      if (v(ovre, i) === null || v(nedre, i) === null) continue;
+      opp += (opp ? 'L' : 'M') + f(X(i)) + ',' + f(Y(v(ovre, i)));
+      ned = 'L' + f(X(i)) + ',' + f(Y(v(nedre, i))) + ned;
+    }
+    return opp ? opp + ned + 'Z' : '';
+  }
+  var MND = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'];
+  var x0 = X(0), x1 = X(n - 1), xT = X(iT), yb = H - mB;
+  var d0 = Date.parse(N.d0 + 'T00:00:00Z') + fra * 864e5;
+
+  var s = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" style="font-family:\'Inter Variable\',Inter,Helvetica,Arial,sans-serif;">';
+  s += '<defs><clipPath id="over-' + id + '"><path d="' + linje('hoy', 0, n - 1) + 'L' + f(x1) + ',0L' + f(x0) + ',0Z"/></clipPath>';
+  s += '<clipPath id="under-' + id + '"><path d="' + linje('lav', 0, n - 1) + 'L' + f(x1) + ',' + H + 'L' + f(x0) + ',' + H + 'Z"/></clipPath></defs>';
+
+  // Bånd: rekordspennet (lysest) og normalbåndet (de midterste årene, andelen kommer fra datafilen)
+  s += '<path d="' + band('maks', 'min') + '" fill="#ececec"/>';
+  s += '<path d="' + band('hoy', 'lav') + '" fill="#c4c4c4"/>';
+
+  // Rutenett
+  for (var g = lo; g <= hi; g += trinn) {
+    s += '<line x1="' + f(x0) + '" x2="' + f(x1) + '" y1="' + f(Y(g)) + '" y2="' + f(Y(g)) + '" stroke="#000" stroke-opacity="' + (g === 0 ? 0.55 : 0.16) + '" stroke-width="1"/>';
+    s += '<text x="' + f(mL - fs * 0.5) + '" y="' + f(Y(g) + fs * 0.35) + '" font-size="' + fs + '" text-anchor="end" fill="#444">' + String(g).replace('-', '−') + '°</text>';
+  }
+
+  // Skille mellom målt og varslet
+  s += '<line x1="' + f(xT) + '" x2="' + f(xT) + '" y1="' + f(mT - fs * 0.4) + '" y2="' + f(yb) + '" stroke="#000" stroke-width="1.5" stroke-dasharray="3 4"/>';
+
+  // Snittet: stiplet
+  s += '<path d="' + linje('snitt', 0, n - 1) + '" fill="none" stroke="#333" stroke-width="2" stroke-dasharray="7 6"/>';
+
+  // Avvik utenfor normalbåndet fylles mørkt
+  var akt = linje('t', 0, iT), forste = 0, siste = iT;
+  while (forste < iT && v('t', forste) === null) forste++;
+  while (siste > 0 && v('t', siste) === null) siste--;
+  if (akt) {
+    s += '<path d="' + akt + 'L' + f(X(siste)) + ',' + H + 'L' + f(X(forste)) + ',' + H + 'Z" fill="#000" fill-opacity="0.42" clip-path="url(#over-' + id + ')"/>';
+    s += '<path d="' + akt + 'L' + f(X(siste)) + ',0L' + f(X(forste)) + ',0Z" fill="#000" fill-opacity="0.42" clip-path="url(#under-' + id + ')"/>';
+  }
+
+  // Faktisk temperatur: tykk svart strek med hvit kant. Varselet fortsetter prikket.
+  var lw = Math.max(3.5, fs * 0.24);
+  s += '<path d="' + akt + '" fill="none" stroke="#fff" stroke-width="' + f(lw + 4) + '" stroke-linejoin="round" stroke-linecap="round"/>';
+  s += '<path d="' + akt + '" fill="none" stroke="#000" stroke-width="' + f(lw) + '" stroke-linejoin="round" stroke-linecap="round"/>';
+  if (iT < n - 1) s += '<path d="' + linje('t', iT, n - 1) + '" fill="none" stroke="#000" stroke-width="' + f(lw) + '" stroke-linecap="round" stroke-dasharray="0.1 ' + f(lw * 2.2) + '"/>';
+
+  // I dag
+  if (v('t', iT) !== null) {
+    var yT = Y(v('t', iT));
+    s += '<circle cx="' + f(xT) + '" cy="' + f(yT) + '" r="' + f(fs * 0.62) + '" fill="#fff" stroke="#000" stroke-width="' + f(lw) + '"/>';
+    s += '<circle cx="' + f(xT) + '" cy="' + f(yT) + '" r="' + f(fs * 0.2) + '" fill="#000"/>';
+  }
+
+  // Direkte merking i høyre marg i stedet for tegnforklaring
+  if (navn) {
+    var e = n - 1, lx = x1 + fs * 0.5, ls = f(fs * 0.9);
+    while (e > 0 && v('snitt', e) === null) e--;
+    if (v('snitt', e) !== null) {
+      [[v('maks', e), 'Rekord varm', '#666', 500], [(v('hoy', e) + v('snitt', e)) / 2 - 0.2, 'Normalt', '#000', 700],
+       [(v('lav', e) + v('snitt', e)) / 2 + 0.2, '(' + window.NORMAL_PST + ' % av årene)', '#444', 500], [v('min', e), 'Rekord kald', '#666', 500]].forEach(function (l) {
+        s += '<text x="' + f(lx) + '" y="' + f(Y(l[0]) + fs * 0.32) + '" font-size="' + ls + '" font-weight="' + l[3] + '" fill="' + l[2] + '">' + l[1] + '</text>';
+      });
+    }
+    if (iT < n - 1) s += '<text x="' + f((xT + x1) / 2) + '" y="' + f(mT - fs * 0.45) + '" font-size="' + ls + '" text-anchor="middle" fill="#444">varsel</text>';
+  }
+
+  // Tidsakse: 1. og 15. i måneden, og «I dag»
+  s += '<line x1="' + f(x0) + '" x2="' + f(x1) + '" y1="' + f(yb) + '" y2="' + f(yb) + '" stroke="#000" stroke-width="2"/>';
+  for (var i = 0; i < n; i++) {
+    var dato = new Date(d0 + i * 864e5), dd = dato.getUTCDate();
+    if (i === iT) { s += '<text x="' + f(X(i)) + '" y="' + (H - 4) + '" font-size="' + fs + '" font-weight="700" text-anchor="middle">I dag</text>'; continue; }
+    if ((dd !== 1 && dd !== 15) || Math.abs(X(i) - xT) < fs * 4.5 || X(i) - x0 < fs * 1.5) continue;
+    s += '<line x1="' + f(X(i)) + '" x2="' + f(X(i)) + '" y1="' + f(yb) + '" y2="' + f(yb + 5) + '" stroke="#000" stroke-width="2"/>';
+    s += '<text x="' + f(X(i)) + '" y="' + (H - 4) + '" font-size="' + fs + '" text-anchor="middle" fill="#333">' + dd + '. ' + MND[dato.getUTCMonth()] + '</text>';
+  }
+
+  el.innerHTML = s + '</svg>';
+};
+
+/* Tegner på nytt til plassen har fått størrelse (opptil ca. 2 sekunder), og igjen når siden er lastet.
+   Feiler tegningen, skrives feilmeldingen i ruten så den synes på skjermen. */
+window.tegnNormal = function () {
+  var args = arguments, forsok = 0, id = args[0];
+  function kjor() {
+    try {
+      if (_tegnNormal.apply(null, args) === false && forsok++ < 20) setTimeout(kjor, 100);
+    } catch (e) {
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = '<span class="label">Kurven kunne ikke tegnes: ' + String(e && e.message || e) + '</span>';
+    }
+  }
+  kjor();
+  window.addEventListener('load', function () { forsok = 0; kjor(); });
+};
+</script>

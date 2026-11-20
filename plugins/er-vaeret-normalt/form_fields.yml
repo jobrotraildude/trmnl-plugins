@@ -1,0 +1,5 @@
+- keyname: sted
+  field_type: string
+  name: Sted
+  description: Navnet som vises i tittellinjen, for eksempel byen eller stasjonen dataene kommer fra.
+  optional: true

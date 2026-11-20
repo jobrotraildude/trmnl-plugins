@@ -1,0 +1,53 @@
+{% comment %} FULL – hel skjerm. Krever Shared-fanen. {% endcomment %}
+<div class="layout layout--col gap--medium">
+
+  {% if har_data %}
+  <div class="nv-topp">
+    <div class="nv-venstre">
+      <span class="nv-kicker">{{ dato_tekst }}</span>
+      <span class="value value--xlarge">{{ middel.dom }}</span>
+      <span class="label label--large">{{ middel.setning }}</span>
+    </div>
+    <div class="nv-hoyre">
+      <span class="value value--xxlarge">{{ middel.verdi }}</span>
+      {{ avvikchip_stor }}
+    </div>
+  </div>
+
+  <div class="nv-ramme"><div id="nv-full" class="nv-kurve"></div></div>
+
+  <div class="nv-stat">
+    <div class="item">
+      <div class="meta"></div>
+      <div class="content">
+        <span class="value value--small">{{ siste30.avvik }}</span>
+        <span class="label">Siste 30 dager mot normalen · {{ siste30.over }} over, {{ siste30.under }} under</span>
+      </div>
+    </div>
+    <div class="item">
+      <div class="meta"></div>
+      <div class="content">
+        <span class="value value--small">{% if maks.mangler %}–{% else %}{{ maks.verdi }}{% endif %} / {% if min.mangler %}–{% else %}{{ min.verdi }}{% endif %}</span>
+        <span class="label">Høyest ({{ maks.kort | default: "ukjent" }}) · lavest ({{ min.kort | default: "ukjent" }})</span>
+      </div>
+    </div>
+    <div class="item">
+      <div class="meta"></div>
+      <div class="content">
+        <span class="value value--small">{{ middel.rekord_hoy }} · {{ middel.rekord_lav }}</span>
+        <span class="label">Rekorder {{ dato_kort }} ({{ middel.rekord_hoy_aar }} · {{ middel.rekord_lav_aar }})</span>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <span class="value">Mangler data fra værstasjonen</span>
+  {% endif %}
+
+</div>
+
+<div class="title_bar">
+  <span class="title">Er været normalt?</span>
+  <span class="instance">{{ sted }} · døgnmiddel · normal {{ normalperiode }} · MET · {{ oppdatert }}</span>
+</div>
+
+<script>tegnNormal('nv-full', 'middel', { dager: 60 });</script>

@@ -1,0 +1,106 @@
+name: Bygg TRMNL-data
+
+on:
+  schedule:
+    - cron: '7,37 * * * *'   # hver halvtime (UTC). GitHub kan forsinke kjøringer noen minutter.
+  workflow_dispatch:          # «Run workflow»-knapp for manuell kjøring
+  push:
+    branches: [main]
+
+# Ingenting skrives tilbake til repoet. Data mellomlagres i GitHubs cache og publiseres på Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  bygg:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Installer avhengigheter
+        run: pip install -r requirements.txt
+
+      - name: Hent fonter (SIL Open Font License)
+        run: |
+          mkdir -p fonts
+          base=https://raw.githubusercontent.com/google/fonts/main/ofl
+          curl -sSLf -o fonts/SpaceGrotesk.ttf      "$base/spacegrotesk/SpaceGrotesk%5Bwght%5D.ttf"
+          curl -sSLf -o fonts/IBMPlexMono-Bold.ttf    "$base/ibmplexmono/IBMPlexMono-Bold.ttf"
+          curl -sSLf -o fonts/IBMPlexMono-Regular.ttf "$base/ibmplexmono/IBMPlexMono-Regular.ttf"
+
+      # --- Jordskjelv og vulkaner ------------------------------------------
+      - name: Jordskjelv og vulkaner – tegn skjermene
+        env:
+          HOME_LAT: ${{ secrets.HOME_LAT }}   # brukes for «nærmest deg»
+          HOME_LON: ${{ secrets.HOME_LON }}
+          TZ_NAME: 'Europe/Oslo'
+        run: python render.py
+
+      # --- Er været normalt? og Døgnets spenn -------------------------------
+      - name: Hent Frost-historikk fra mellomlageret
+        uses: actions/cache@v4
+        with:
+          path: data
+          key: frost-${{ github.run_id }}
+          restore-keys: frost-
+
+      - name: Er været normalt – hent fra Frost og regn ut
+        id: normal
+        continue-on-error: true
+        env:
+          FROST_CLIENT_ID: ${{ secrets.FROST_CLIENT_ID }}
+          FROST_STASJON: ${{ secrets.FROST_STASJON }}
+          HOME_LAT: ${{ secrets.HOME_LAT }}
+          HOME_LON: ${{ secrets.HOME_LON }}
+        run: python bygg_normal.py --cache data/frost_doegn.csv --ut site/normal.json
+
+      - name: Behold forrige normal.json hvis Frost feilet
+        if: steps.normal.outcome == 'failure'
+        run: curl -sSf -o site/normal.json "https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/normal.json" || true
+
+      # --- Togavganger: stasjonsliste, hentes på nytt én gang i uka ------------
+      - name: Ukenummer
+        id: uke
+        run: echo "uke=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Hent stasjonslisten fra mellomlageret
+        id: stasjonscache
+        uses: actions/cache@v4
+        with:
+          path: cache
+          key: stasjoner-${{ steps.uke.outputs.uke }}
+
+      - name: Togstasjoner – hent liste fra Entur
+        if: steps.stasjonscache.outputs.cache-hit != 'true'
+        id: stasjoner
+        continue-on-error: true
+        run: python stasjoner.py --ut cache/stasjoner.json
+
+      - name: Legg stasjonslisten på siden
+        run: |
+          if [ -s cache/stasjoner.json ]; then
+            cp cache/stasjoner.json site/stasjoner.json
+          else
+            curl -sSf -o site/stasjoner.json "https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/stasjoner.json" || true
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

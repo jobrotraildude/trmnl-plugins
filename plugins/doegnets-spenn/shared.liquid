@@ -1,0 +1,174 @@
+{% comment %} SHARED – legges automatisk foran alle layouter for «Døgnets spenn» (maks og min) {% endcomment %}
+{% comment %} Stedsnavnet skrives inn i pluginens innstillinger i TRMNL (feltet «Sted»), så det ikke ligger i datafilen. {% endcomment %}
+{% assign sted = trmnl.plugin_settings.custom_fields_values.sted | default: "" %}
+{% comment %} Merkelapper: svart når verdien er utenfor det normale, ramme når den er normal {% endcomment %}
+{% capture chip_maks %}{% unless maks.mangler %}<span class="label {% if maks.utenfor %}label--filled{% else %}label--outline{% endif %}">{{ maks.avvik_tekst }}</span>{% endunless %}{% endcapture %}
+{% capture chip_min %}{% unless min.mangler %}<span class="label {% if min.utenfor %}label--filled{% else %}label--outline{% endif %}">{{ min.avvik_tekst }}</span>{% endunless %}{% endcapture %}
+{% assign chip_maks_stor = chip_maks | replace: 'class="label', 'class="label label--large' %}
+{% assign chip_min_stor = chip_min | replace: 'class="label', 'class="label label--large' %}
+
+<style>
+  .sp-topp { display:flex; align-items:stretch; gap:26px; width:100%; }
+  .sp-boks { display:flex; flex-direction:column; gap:8px; min-width:0; }
+  .sp-topp > .sp-boks + .sp-boks { padding-left:26px; border-left:2px solid #000; }
+  .sp-kicker { font-size:14px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#444; white-space:nowrap; }
+  .sp-stat { display:flex; gap:26px; width:100%; padding-top:10px; border-top:2px solid #000; }
+  .sp-stat .item { flex:1; min-width:0; }
+  .sp-ramme { position:relative; width:100%; flex:1; min-width:0; min-height:0; }
+  .sp-kurve { position:absolute; inset:0; }
+</style>
+
+<script>
+window.NORMAL = {{ serie | default: "null" }};
+
+(function () {
+  var MND = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'];
+  function tall(v) { return (Math.round(v * 10) / 10).toFixed(1).replace('.', ',').replace('-', '−'); }
+  function dato(N, i) { var d = new Date(Date.parse(N.d0 + 'T00:00:00Z') + i * 864e5); return d.getUTCDate() + '. ' + MND[d.getUTCMonth()]; }
+  function sett(id, tekst) { var el = document.getElementById(id); if (el) el.textContent = tekst; }
+
+  /* Fyller inn tallene som regnes ut fra serien: dagens spenn, frostdøgn og varmeste/kaldeste måling.
+     Elementene finnes bare i layoutene som bruker dem, så manglende id-er hoppes over. */
+  window.fyllSpenn = function () {
+    var N = window.NORMAL;
+    if (!N || !N.maks || !N.min) return;
+    var hi = N.maks.t, lo = N.min.t, iT = N.iT;
+    if (hi[iT] !== null && lo[iT] !== null) {
+      sett('sp-spenn', tall(hi[iT] - lo[iT]) + '°');
+      if (N.maks.snitt[iT] !== null && N.min.snitt[iT] !== null) sett('sp-spenn-normal', 'Normalt ' + tall(N.maks.snitt[iT] - N.min.snitt[iT]) + '°');
+    }
+    var frost = 0, dager = 0, varm = null, kald = null;
+    for (var i = 0; i <= iT; i++) {
+      if (i > iT - 30 && lo[i] !== null) { dager++; if (lo[i] < 0) frost++; }
+      if (hi[i] !== null && (varm === null || hi[i] > hi[varm])) varm = i;
+      if (lo[i] !== null && (kald === null || lo[i] < lo[kald])) kald = i;
+    }
+    sett('sp-frost', frost + ' av ' + dager);
+    // Tall og tekst settes som én sammenhengende tekst hver, så rammeverket ikke bryter dem opp
+    if (varm !== null && kald !== null) {
+      sett('sp-ytter', tall(hi[varm]) + '° · ' + tall(lo[kald]) + '°');
+      sett('sp-ytter-tekst', 'Varmest (' + dato(N, varm) + ') · kaldest (' + dato(N, kald) + ') siste ' + iT + ' dager');
+    }
+  };
+
+  /* Tegner én stolpe per døgn fra laveste til høyeste temperatur, over tre gråtoner:
+     rekordspennet, det vanlige spennet (normalbåndet fra datafilen) og snittet av høyest og lavest.
+     opts: dager (hvor mange dager tilbake), navn (merking i høyre marg) */
+  var _tegnSpenn = function (id, opts) {
+    opts = opts || {};
+    var N = window.NORMAL, el = document.getElementById(id);
+    if (!el || !N || !N.maks || !N.min) return;
+    var A = N.maks, B = N.min, fra = Math.max(0, N.iT - (opts.dager || N.iT)), n = N.n - fra, iT = N.iT - fra;
+    function v(S, felt, i) { var x = S[felt][i + fra]; return x === null || x === undefined ? null : x; }
+
+    var r = el.getBoundingClientRect(), W = r.width, H = r.height;
+    if (W < 50 || H < 50) return false;
+    var fs = Math.max(12, Math.round(Math.min(H * 0.045, W * 0.02)));
+    var navn = opts.navn !== false;
+    var mL = fs * 2.6, mR = navn ? fs * 7.4 : 8, mT = fs * 1.6, mB = fs * 1.9;
+
+    var alle = [];
+    for (var a = 0; a < n; a++) [[A, 't'], [A, 'maks'], [B, 't'], [B, 'min']].forEach(function (p) { var x = v(p[0], p[1], a); if (x !== null) alle.push(x); });
+    if (!alle.length) return;
+    var lo = Math.floor(Math.min.apply(null, alle) / 5) * 5, hi = Math.ceil(Math.max.apply(null, alle) / 5) * 5;
+    if (hi === lo) hi = lo + 5;
+    var trinn = (hi - lo) > 30 ? 10 : 5;
+
+    var steg = (W - mL - mR) / n;
+    function X(i) { return mL + (i + 0.5) * steg; }
+    function Y(t) { return mT + (hi - t) / (hi - lo) * (H - mT - mB); }
+    function f(t) { return Math.round(t * 10) / 10; }
+    // Bånd som følger stolpenes ytterkanter, så første og siste døgn er dekket i full bredde
+    function band(S1, f1, S2, f2) {
+      var opp = [], ned = [];
+      for (var i = 0; i < n; i++) {
+        var o = v(S1, f1, i), u = v(S2, f2, i);
+        if (o === null || u === null) continue;
+        opp.push([X(i), Y(o)]); ned.push([X(i), Y(u)]);
+      }
+      if (!opp.length) return '';
+      opp.unshift([mL, opp[0][1]]); opp.push([mL + n * steg, opp[opp.length - 1][1]]);
+      ned.unshift([mL, ned[0][1]]); ned.push([mL + n * steg, ned[ned.length - 1][1]]);
+      var s = '';
+      opp.forEach(function (p, i) { s += (i ? 'L' : 'M') + f(p[0]) + ',' + f(p[1]); });
+      ned.reverse().forEach(function (p) { s += 'L' + f(p[0]) + ',' + f(p[1]); });
+      return s + 'Z';
+    }
+    var x0 = mL, x1 = mL + n * steg, yb = H - mB;
+    var d0 = Date.parse(N.d0 + 'T00:00:00Z') + fra * 864e5;
+
+    var s = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" style="font-family:\'Inter Variable\',Inter,Helvetica,Arial,sans-serif;">';
+    // Klippeflate: alt utenfor det vanlige spennet. Stolpene tegnes svarte der.
+    s += '<defs><clipPath id="ute-' + id + '" clip-rule="evenodd"><path clip-rule="evenodd" d="M0,0H' + W + 'V' + H + 'H0Z ' + band(A, 'hoy', B, 'lav') + '"/></clipPath></defs>';
+
+    s += '<path d="' + band(A, 'maks', B, 'min') + '" fill="#efefef"/>';   // rekordspennet
+    s += '<path d="' + band(A, 'hoy', B, 'lav') + '" fill="#dcdcdc"/>';    // vanlig spenn (normalbåndet)
+    s += '<path d="' + band(A, 'snitt', B, 'snitt') + '" fill="#c2c2c2"/>'; // snitt høyest–lavest
+
+    for (var g = lo; g <= hi; g += trinn) {
+      s += '<line x1="' + f(x0) + '" x2="' + f(x1) + '" y1="' + f(Y(g)) + '" y2="' + f(Y(g)) + '" stroke="#000" stroke-opacity="' + (g === 0 ? 0.6 : 0.14) + '" stroke-width="' + (g === 0 ? 1.5 : 1) + '"/>';
+      s += '<text x="' + f(mL - fs * 0.5) + '" y="' + f(Y(g) + fs * 0.35) + '" font-size="' + fs + '" text-anchor="end" fill="#444">' + String(g).replace('-', '−') + '°</text>';
+    }
+
+    // Stolper: mørk grå innenfor det vanlige, svart utenfor. Varselet er åpne stolper.
+    var bw = Math.max(3, steg * 0.62), maalt = '', ute = '', varsel = '';
+    for (var i = 0; i < n; i++) {
+      var o = v(A, 't', i), u = v(B, 't', i);
+      if (o === null || u === null) continue;
+      var y = Y(Math.max(o, u)), h = Math.max(bw, Y(Math.min(o, u)) - y);
+      var rect = '<rect x="' + f(X(i) - bw / 2) + '" y="' + f(y) + '" width="' + f(bw) + '" height="' + f(h) + '" rx="' + f(bw / 2) + '"';
+      if (i > iT) varsel += rect + ' fill="#fff" stroke="#000" stroke-width="1.6"/>';
+      else { maalt += rect + ' fill="#5a5a5a"/>'; ute += rect + ' fill="#000"/>'; }
+    }
+    s += maalt + '<g clip-path="url(#ute-' + id + ')">' + ute + '</g>' + varsel;
+
+    // Skille mellom målt og varslet
+    var xs = mL + (iT + 1) * steg;
+    if (iT < n - 1) s += '<line x1="' + f(xs) + '" x2="' + f(xs) + '" y1="' + f(mT - fs * 0.4) + '" y2="' + f(yb) + '" stroke="#000" stroke-width="1.5" stroke-dasharray="3 4"/>';
+
+    if (navn) {
+      var e = n - 1, lx = x1 + fs * 0.5, ls = f(fs * 0.9);
+      while (e > 0 && (v(A, 'snitt', e) === null || v(B, 'snitt', e) === null)) e--;
+      if (v(A, 'snitt', e) !== null) {
+        [[v(A, 'maks', e), 'Rekord varm', '#666', 500], [(v(A, 'snitt', e) + v(B, 'snitt', e)) / 2 + 1.2, 'Normalt spenn', '#000', 700],
+         [(v(A, 'snitt', e) + v(B, 'snitt', e)) / 2 - 1.2, '(snitt høy–lav)', '#444', 500], [v(B, 'min', e), 'Rekord kald', '#666', 500]].forEach(function (l) {
+          s += '<text x="' + f(lx) + '" y="' + f(Y(l[0]) + fs * 0.32) + '" font-size="' + ls + '" font-weight="' + l[3] + '" fill="' + l[2] + '">' + l[1] + '</text>';
+        });
+      }
+      if (iT < n - 1) s += '<text x="' + f((xs + x1) / 2) + '" y="' + f(mT - fs * 0.45) + '" font-size="' + ls + '" text-anchor="middle" fill="#444">varsel</text>';
+    }
+
+    // Tidsakse
+    s += '<line x1="' + f(x0) + '" x2="' + f(x1) + '" y1="' + f(yb) + '" y2="' + f(yb) + '" stroke="#000" stroke-width="2"/>';
+    for (var k = 0; k < n; k++) {
+      var dt = new Date(d0 + k * 864e5), dd = dt.getUTCDate();
+      if (k === iT) {
+        s += '<path d="M' + f(X(k)) + ',' + f(yb + 2) + 'l-4,5h8z" fill="#000"/>';
+        s += '<text x="' + f(X(k)) + '" y="' + (H - 4) + '" font-size="' + fs + '" font-weight="700" text-anchor="middle">I dag</text>';
+        continue;
+      }
+      if ((dd !== 1 && dd !== 15) || Math.abs(X(k) - X(iT)) < fs * 4.5 || X(k) - x0 < fs * 1.5) continue;
+      s += '<line x1="' + f(X(k)) + '" x2="' + f(X(k)) + '" y1="' + f(yb) + '" y2="' + f(yb + 5) + '" stroke="#000" stroke-width="2"/>';
+      s += '<text x="' + f(X(k)) + '" y="' + (H - 4) + '" font-size="' + fs + '" text-anchor="middle" fill="#333">' + dd + '. ' + MND[dt.getUTCMonth()] + '</text>';
+    }
+
+    el.innerHTML = s + '</svg>';
+  };
+
+/* Tegner på nytt til plassen har fått størrelse (opptil ca. 2 sekunder), og igjen når siden er lastet.
+   Feiler tegningen, skrives feilmeldingen i ruten så den synes på skjermen. */
+window.tegnSpenn = function () {
+  var args = arguments, forsok = 0, id = args[0];
+  function kjor() {
+    try {
+      if (_tegnSpenn.apply(null, args) === false && forsok++ < 20) setTimeout(kjor, 100);
+    } catch (e) {
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = '<span class="label">Kurven kunne ikke tegnes: ' + String(e && e.message || e) + '</span>';
+    }
+  }
+  kjor();
+  window.addEventListener('load', function () { forsok = 0; kjor(); });
+};
+})();
+</script>

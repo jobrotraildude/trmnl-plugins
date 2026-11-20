@@ -1,0 +1,29 @@
+{% comment %} QUADRANT – en firedel av skjermen. Krever Shared-fanen. {% endcomment %}
+<div class="layout layout--col gap--small">
+
+  {% if maks.mangler or min.mangler %}
+  <span class="value value--small">Mangler data fra værstasjonen</span>
+  {% else %}
+  <div class="sp-topp" style="gap:14px;">
+    <div class="sp-boks" style="flex:1; gap:5px;">
+      <span class="sp-kicker">▲ Høyest</span>
+      <span class="value">{{ maks.verdi }}</span>
+      <div>{{ chip_maks }}</div>
+    </div>
+    <div class="sp-boks" style="flex:1; gap:5px; padding-left:14px;">
+      <span class="sp-kicker">▼ Lavest</span>
+      <span class="value">{{ min.verdi }}</span>
+      <div>{{ chip_min }}</div>
+    </div>
+  </div>
+  <div class="sp-ramme"><div id="sp-q" class="sp-kurve"></div></div>
+  {% endif %}
+
+</div>
+
+<div class="title_bar">
+  <span class="title">Døgnets spenn</span>
+  <span class="instance">{{ sted }}</span>
+</div>
+
+<script>fyllSpenn(); tegnSpenn('sp-q', { dager: 30, navn: false });</script>

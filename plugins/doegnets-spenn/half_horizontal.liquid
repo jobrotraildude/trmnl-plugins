@@ -1,0 +1,29 @@
+{% comment %} HALF HORIZONTAL – full bredde, halve høyden. Krever Shared-fanen. {% endcomment %}
+<div class="layout layout--row gap--medium" style="align-items:stretch;">
+
+  {% if maks.mangler or min.mangler %}
+  <span class="value">Mangler data fra værstasjonen</span>
+  {% else %}
+  <div style="width:25%; flex-shrink:0; display:flex; flex-direction:column; justify-content:center; gap:14px;">
+    <div class="sp-boks" style="gap:6px;">
+      <span class="sp-kicker">▲ Høyest i dag</span>
+      <span class="value value--large">{{ maks.verdi }}</span>
+      <div>{{ chip_maks }}</div>
+    </div>
+    <div class="sp-boks" style="gap:6px;">
+      <span class="sp-kicker">▼ Lavest</span>
+      <span class="value value--large">{{ min.verdi }}</span>
+      <div>{{ chip_min }}</div>
+    </div>
+  </div>
+  <div class="sp-ramme"><div id="sp-hh" class="sp-kurve"></div></div>
+  {% endif %}
+
+</div>
+
+<div class="title_bar">
+  <span class="title">Døgnets spenn</span>
+  <span class="instance">{{ sted }} · høyest og lavest · {{ oppdatert }}</span>
+</div>
+
+<script>fyllSpenn(); tegnSpenn('sp-hh', { dager: 60 });</script>

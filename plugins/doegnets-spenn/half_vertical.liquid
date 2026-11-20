@@ -1,0 +1,47 @@
+{% comment %} HALF VERTICAL – halve bredden, full høyde. Krever Shared-fanen. {% endcomment %}
+<div class="layout layout--col gap--medium">
+
+  {% if maks.mangler or min.mangler %}
+  <span class="value value--small">Mangler data fra værstasjonen</span>
+  {% else %}
+  <div class="sp-topp" style="gap:18px;">
+    <div class="sp-boks" style="flex:1;">
+      <span class="sp-kicker">▲ Høyest i dag</span>
+      <span class="value value--xlarge">{{ maks.verdi }}</span>
+      <div>{{ chip_maks }}</div>
+    </div>
+    <div class="sp-boks" style="flex:1; padding-left:18px;">
+      <span class="sp-kicker">▼ Lavest</span>
+      <span class="value value--xlarge">{{ min.verdi }}</span>
+      <div>{{ chip_min }}</div>
+    </div>
+  </div>
+
+  <div class="sp-ramme"><div id="sp-hv" class="sp-kurve"></div></div>
+
+  <div class="sp-stat">
+    <div class="item">
+      <div class="meta"></div>
+      <div class="content">
+        <span class="value value--xsmall" id="sp-spenn">–</span>
+        <span class="label label--small">Døgnets spenn</span>
+      </div>
+    </div>
+    <div class="item">
+      <div class="meta"></div>
+      <div class="content">
+        <span class="value value--xsmall" id="sp-frost">–</span>
+        <span class="label label--small">Frostdøgn siste 30 dager</span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<div class="title_bar">
+  <span class="title">Døgnets spenn</span>
+  <span class="instance">{{ sted }} · {{ oppdatert }}</span>
+</div>
+
+<script>fyllSpenn(); tegnSpenn('sp-hv', { dager: 30, navn: false });</script>
