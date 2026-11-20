@@ -43,12 +43,27 @@ jobs:
           curl -sSLf -o fonts/IBMPlexMono-Regular.ttf "$base/ibmplexmono/IBMPlexMono-Regular.ttf"
 
       # --- Jordskjelv og vulkaner ------------------------------------------
+      # Feiler én av kildene (USGS eller Smithsonian), skal ikke resten stoppe.
+      # Da publiseres forrige versjon av bildene som mangler.
       - name: Jordskjelv og vulkaner – tegn skjermene
+        id: jorda
+        continue-on-error: true
         env:
           HOME_LAT: ${{ secrets.HOME_LAT }}   # brukes for «nærmest deg»
           HOME_LON: ${{ secrets.HOME_LON }}
           TZ_NAME: 'Europe/Oslo'
         run: python render.py
+
+      - name: Behold forrige bilder for det som feilet
+        if: steps.jorda.outcome == 'failure'
+        run: |
+          base="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
+          for k in quakes volcanoes; do
+            for l in "" _full _half_horizontal _half_vertical _quadrant; do
+              f="$k$l"
+              [ -s "site/$f.png" ] || curl -sSf -o "site/$f.png" "$base/$f.png" || echo "fant ikke forrige $f.png"
+            done
+          done
 
       # --- Er været normalt? og Døgnets spenn -------------------------------
       - name: Hent Frost-historikk fra mellomlageret
