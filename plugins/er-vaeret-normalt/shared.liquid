@@ -9,7 +9,7 @@
   .nv-topp { display:flex; justify-content:space-between; align-items:flex-end; gap:20px; width:100%; }
   .nv-venstre { display:flex; flex-direction:column; gap:8px; min-width:0; }
   .nv-hoyre { display:flex; flex-direction:column; align-items:flex-end; gap:8px; flex-shrink:0; }
-  .nv-kicker { font-size:14px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#444; }
+  .nv-kicker { font-family:'Inter Variable', Inter, Helvetica, Arial, sans-serif; font-size:14px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#444; }
   .nv-stat { display:flex; gap:26px; width:100%; padding-top:10px; border-top:2px solid #000; }
   .nv-stat .item { flex:1; min-width:0; }
   .nv-ramme { position:relative; width:100%; flex:1; min-width:0; min-height:0; }
@@ -115,12 +115,20 @@ var _tegnNormal = function (id, nokkel, opts) {
     var e = n - 1, lx = x1 + fs * 0.5, ls = f(fs * 0.9);
     while (e > 0 && v('snitt', e) === null) e--;
     if (v('snitt', e) !== null) {
-      [[v('maks', e), 'Rekord varm', '#666', 500], [(v('hoy', e) + v('snitt', e)) / 2 - 0.2, 'Normalt', '#000', 700],
-       [(v('lav', e) + v('snitt', e)) / 2 + 0.2, '(' + window.NORMAL_PST + ' % av årene)', '#444', 500], [v('min', e), 'Rekord kald', '#666', 500]].forEach(function (l) {
+      // Den stiplede linjen og det mørke båndet får hver sin etikett
+      [[v('maks', e), 'Rekord varm', '#666', 500], [v('snitt', e), '- - Snitt', '#000', 700],
+       [(v('lav', e) + v('snitt', e)) / 2, 'Normalt (' + window.NORMAL_PST + ' %)', '#000', 600], [v('min', e), 'Rekord kald', '#666', 500]].forEach(function (l) {
         s += '<text x="' + f(lx) + '" y="' + f(Y(l[0]) + fs * 0.32) + '" font-size="' + ls + '" font-weight="' + l[3] + '" fill="' + l[2] + '">' + l[1] + '</text>';
       });
     }
     if (iT < n - 1) s += '<text x="' + f((xT + x1) / 2) + '" y="' + f(mT - fs * 0.45) + '" font-size="' + ls + '" text-anchor="middle" fill="#444">varsel</text>';
+    // Forklaring øverst til venstre: mørk flate og ringen for i dag
+    var fx = x0 + fs * 0.2, fy = mT - fs * 0.45;
+    s += '<rect x="' + f(fx) + '" y="' + f(fy - fs * 0.75) + '" width="' + f(fs * 1.1) + '" height="' + f(fs * 0.8) + '" fill="#000" fill-opacity="0.42"/>';
+    s += '<text x="' + f(fx + fs * 1.5) + '" y="' + f(fy) + '" font-size="' + ls + '" fill="#444">utenfor det normale</text>';
+    var fx2 = fx + fs * 12;
+    s += '<circle cx="' + f(fx2 + fs * 0.45) + '" cy="' + f(fy - fs * 0.33) + '" r="' + f(fs * 0.4) + '" fill="#fff" stroke="#000" stroke-width="2"/>';
+    s += '<text x="' + f(fx2 + fs * 1.2) + '" y="' + f(fy) + '" font-size="' + ls + '" fill="#444">i dag, foreløpig</text>';
   }
 
   // Tidsakse: 1. og 15. i måneden, og «I dag»
