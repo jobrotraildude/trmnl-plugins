@@ -6,14 +6,16 @@
   {% else %}
   <div class="sp-topp">
     <div class="sp-boks" style="flex:1.2;">
-      <span class="sp-kicker">▲ Høyest · {{ dato_tekst }}</span>
+      <span class="sp-kicker">▲ Høyest · {{ dato_kort }} · foreløpig</span>
       <span class="value value--xxlarge">{{ maks.verdi }}</span>
       <div>{{ chip_maks_stor }}</div>
+      {% if maks.setning %}<span class="label sp-setning">{{ maks.setning }}</span>{% endif %}
     </div>
     <div class="sp-boks" style="flex:1.2;">
       <span class="sp-kicker">▼ Lavest</span>
       <span class="value value--xxlarge">{{ min.verdi }}</span>
       <div>{{ chip_min_stor }}</div>
+      {% if min.setning %}<span class="label sp-setning">{{ min.setning }}</span>{% endif %}
     </div>
     <div class="sp-boks" style="flex:0.8;">
       <span class="sp-kicker">Døgnets spenn</span>
@@ -32,6 +34,15 @@
         <span class="label">Døgn med frost siste 30 dager</span>
       </div>
     </div>
+    {% if siste30.dager > 0 %}
+    <div class="item">
+      <div class="meta"></div>
+      <div class="content">
+        <span class="value value--small">{{ siste30.over }} varme · {{ siste30.under }} kalde</span>
+        <span class="label">Døgn utenfor det vanlige siste 30 dager</span>
+      </div>
+    </div>
+    {% endif %}
     <div class="item">
       <div class="meta"></div>
       <div class="content">
