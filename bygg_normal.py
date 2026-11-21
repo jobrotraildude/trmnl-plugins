@@ -232,12 +232,22 @@ def klima(hist, nokkel, dato, for_dato):
 
 
 def doegn_fra_timer(timer, dato):
-    """Middel, maks og min for et UTC-døgn ut fra timesverdier. Krever minst 20 av 24 timer."""
-    start = dt.datetime(dato.year, dato.month, dato.day, tzinfo=dt.timezone.utc)
-    verdier = [timer[start + dt.timedelta(hours=h)] for h in range(24) if start + dt.timedelta(hours=h) in timer]
-    if len(verdier) < 20:
-        return None
-    return {"middel": sum(verdier) / len(verdier), "maks": max(verdier), "min": min(verdier)}
+    """Døgnverdier ut fra timesverdier, med samme døgndefinisjon som døgnverdiene fra Frost:
+    middel over UTC-døgnet 00–24, maks og min over klimadøgnet 18–18 UTC som ender på datoen.
+    Krever minst 20 av 24 timer i hvert vindu. Returnerer bare verdiene som har nok timer."""
+    def vindu(start):
+        tider = (start + dt.timedelta(hours=h) for h in range(24))
+        return [timer[t] for t in tider if t in timer]
+
+    midnatt = dt.datetime(dato.year, dato.month, dato.day, tzinfo=dt.timezone.utc)
+    utc_doegn = vindu(midnatt)
+    klimadoegn = vindu(midnatt - dt.timedelta(hours=6))  # fra kl. 18 UTC dagen før
+    ut = {}
+    if len(utc_doegn) >= 20:
+        ut["middel"] = sum(utc_doegn) / len(utc_doegn)
+    if len(klimadoegn) >= 20:
+        ut["maks"], ut["min"] = max(klimadoegn), min(klimadoegn)
+    return ut or None
 
 
 # ----------------------------------------------------------------------------- tekst
